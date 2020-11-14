@@ -2,8 +2,8 @@
 Repository for Communication-Efficient Learning of Deep Networks from Decentralized Data
 
 ### Files
-* main_fed.py: Main python file for conducting training/inference
-* main_fed.ipynb: Notebook version of main_fed.py
-* Data: Stores MNIST data
-* Utils: files for 
-* Networks:
+* main_fed.py: main python file for conducting training/inference
+* main_fed.ipynb: notebook version of main_fed.py
+* data: stores MNIST data (automatically download dataset at initial running)
+* utils: files for setting args, defining sampling method 
+* models: defines model architecture
