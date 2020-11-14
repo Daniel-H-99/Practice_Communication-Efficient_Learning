@@ -14,15 +14,14 @@ from utils.sampling import mnist_iid, mnist_noniid
 from utils.options import args_parser
 from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist
-from models.Fed import FedAvg
 from models.test import test_img
-
-
-if __name__ == '__main__':
+    
+def main(iid=False):
     # parse args
     args = args_parser()
+    args.iid=iid
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
-
+    TAG = "{}_C_{}_iid_{}".format(args.model, args.frac, args.iid)
     # load dataset and split users
     if args.dataset == 'mnist':
         trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
@@ -30,9 +29,9 @@ if __name__ == '__main__':
         dataset_test = datasets.MNIST('../data/mnist/', train=False, download=True, transform=trans_mnist)
         # sample users
         if args.iid:
-            dict_users = mnist_iid(dataset_train, args.num_users)
+            dict_users_train = mnist_iid(dataset_train, args.num_users)
         else:
-            dict_users = mnist_noniid(dataset_train, args.num_users)
+            dict_users_train = mnist_noniid(dataset_train, args.num_users)
     else:
         exit('Error: unrecognized dataset')
     img_size = dataset_train[0][0].shape
@@ -57,8 +56,8 @@ if __name__ == '__main__':
     loss_train = []
     net_best = None
     best_loss = None
-
-    for iter in range(args.epochs):
+    last_round = 0
+    for iter in range(1, args.epochs + 1):
         totp = 0 
         w_glob = None
         loss_locals = []
@@ -88,18 +87,24 @@ if __name__ == '__main__':
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
-
+        
         # print loss
         loss_avg = sum(loss_locals) / len(loss_locals)
-        # TODO : print accuracy 
-        print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
+        
+        # update checkpoint
+        last_round = iter
+        print('[{}] Round {:3d}, Average loss {:.3f}'.format(TAG, last_round, loss_avg))
+        torch.save(w_glob, './ckpt/{}_round{}.pt'.format(TAG, last_round))
         loss_train.append(loss_avg)
-
+        acc_test, loss_test = test_img(net_glob, dataset_test, args)
+        if acc_test >= 99:
+            break
+            
     # plot loss curve
     plt.figure()
     plt.plot(range(len(loss_train)), loss_train)
     plt.ylabel('train_loss')
-    plt.savefig('./save/fed_{}_{}_{}_C{}_iid{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid))
+    plt.savefig('./save/{}.png'.format(TAG))
 
     # testing
     net_glob.eval()
@@ -108,3 +113,5 @@ if __name__ == '__main__':
     print("Training accuracy: {:.2f}".format(acc_train))
     print("Testing accuracy: {:.2f}".format(acc_test))
 
+if __name__ == '__main__':
+    main(iid=True)
